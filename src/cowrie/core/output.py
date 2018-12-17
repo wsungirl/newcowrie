@@ -33,6 +33,7 @@ import datetime
 import re
 import socket
 import time
+import json
 
 from cowrie.core.config import CONFIG
 
@@ -203,6 +204,47 @@ class Output(object):
         else:
             ev['session'] = self.sessions[sessionno]
 
+        if 'message' in ev and ev['message'] != ():
+       	    links = re.findall("(https?://(?P<ip>[\w\.]+)[\w/\.:]*)", ev['message'])
+            links_array = []
+	        ip_array = []
+	        url_filename = []
+            ftp_ip = []
+	        ftp_cmd = []
+            if ev['eventid'] == "cowrie.command.input" and self.outfile.name == "cowrie.json":
+                link_file = open("log/links.json", "a")
+                for link, ip in links:
+                    js_data = {}
+                    links_array.append(link)
+                    ip_array.append(ip)
+                    url_filename.append(link[link.rfind('/')+1:])
+                    js_data['timestamp'] = ev['timestamp']
+                    js_data['cowrie_links'] = link
+                    js_data['cowrie_url_ip'] = ip
+                    js_data['url_filename'] = link[link.rfind('/')+1:]
+                    js_data['src_ip'] = ev['src_ip']
+                    js_data['message'] = ev['message']
+           	        link_file.write(json.dumps(js_data)+"\n")
+                link_file.close()
+                ftp_links = re.findall("(t?ftpd?(get)?[\-\w\s]*\s(?P<ip>[\d\.]+))", ev['message'])
+	            link_file = open("log/ftp_ip.json", "a")
+                for link, ip in ftp_links:
+                    js_data = {}
+		            js_data['timestamp'] = ev['timestamp']
+                    js_data['src_ip'] = ev['src_ip']
+                    js_data['message'] = ev['message']
+	                ftp_ip.append(ip)
+		            ftp_cmd.append(link)
+                    js_data['cowrie_ftp_ip'] = ip
+                    js_data['cowrie_ftp_command'] = link
+           	        link_file.write(json.dumps(js_data)+"\n")
+	            link_file.close()
+             ev['cowrie_links'] = links_array
+             ev['cowrie_url_ip'] = ip_array
+             ev['url_filename'] = url_filename
+             ev['cowrie_ftp_ip'] = ftp_ip
+             ev['cowrie_ftp_command'] = ftp_cmd
+        
         self.write(ev)
 
         # Disconnect is special, remove cached data
